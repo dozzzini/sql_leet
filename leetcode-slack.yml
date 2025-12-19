@@ -1,0 +1,44 @@
+name: LeetHub Slack Notifier
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get changed files
+        id: changes
+        run: |
+          git diff --name-only ${{ github.event.before }} ${{ github.sha }} > files.txt
+          echo "Changed files:"
+          cat files.txt
+
+      - name: Decide whether to notify Slack
+        id: decision
+        run: |
+          # 문제 폴더(숫자-이름/)가 하나라도 있으면 알림
+          if grep -E '^[0-9]+-.*\/' files.txt > /dev/null; then
+            echo "notify=true" >> $GITHUB_OUTPUT
+          else
+            echo "notify=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: steps.decision.outputs.notify == 'true'
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+
+          curl -X POST -H 'Content-type: application/json' \
+          --data "{
+            \"text\": \"${COMMIT_HASH} - ${COMMIT_MSG}\"
+          }" \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
