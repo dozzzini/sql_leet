@@ -21,7 +21,8 @@ jobs:
       - name: Decide whether to notify Slack
         id: decision
         run: |
-          FILES=$(git diff --name-only HEAD~1 HEAD)
+          FILES=$(git show --name-only --pretty="" $GITHUB_SHA)
+
 
           echo "Changed files in this commit:"
           echo "$FILES"
