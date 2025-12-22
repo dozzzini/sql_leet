@@ -11,24 +11,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ 현재 커밋과 바로 이전 커밋만 가져오기
+      # 1️⃣ 현재 커밋만 정확히 검사
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 1
 
-      # 2️⃣ "이 커밋 하나"에서 변경된 파일만 확인
+      # 2️⃣ Slack 알림 여부 판단 (파일 + 커밋 메시지 이중 필터)
       - name: Decide whether to notify Slack
         id: decision
         run: |
+          # 현재 커밋에서 변경된 파일 목록
           FILES=$(git show --name-only --pretty="" $GITHUB_SHA)
-
 
           echo "Changed files in this commit:"
           echo "$FILES"
 
-          # 문제 폴더 (숫자-문제이름) 가 하나라도 있으면 알림
-          if echo "$FILES" | grep -E '^[0-9]+-'; then
+          # 현재 커밋 메시지
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MSG"
+
+          # 조건:
+          # 1) 문제 폴더(숫자-문제이름)가 변경됨
+          # 2) 커밋 메시지에 README / stats 관련 키워드가 없음
+          if echo "$FILES" | grep -E '^[0-9]+-' \
+             && ! echo "$COMMIT_MSG" | grep -Ei 'readme|stats'; then
             echo "notify=true" >> $GITHUB_OUTPUT
           else
             echo "notify=false" >> $GITHUB_OUTPUT
@@ -40,8 +47,8 @@ jobs:
         run: |
           FULL_SHA=${{ github.sha }}
           SHORT_SHA=$(echo $FULL_SHA | cut -c1-7)
-          COMMIT_MSG=$(git log -1 --pretty=%s)
           COMMIT_URL="https://github.com/${{ github.repository }}/commit/${FULL_SHA}"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
 
           curl -X POST -H 'Content-type: application/json' \
           --data "{
